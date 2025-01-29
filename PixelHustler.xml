@@ -6,6 +6,7 @@
         <texture path="obj/TextureGame.vtex" />
         <texture path="obj/TextureGround.vtex" />
         <texture path="obj/TextureWalls.vtex" />
+        <texture path="obj/soldier.vtex" />
     </textures>
     <sounds />
 </rom-definition>

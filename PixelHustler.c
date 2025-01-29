@@ -13,9 +13,11 @@
     #include "Definitions.h"
     #include "Globals.h"
     #include "DrawWalls.h"
+    #include "character/totally_not_stolen_character.h"
     
     // include project sources
     #include "Globals.c"
+    #include "character/totally_not_stolen_character.c"
 // *****************************************************************************
 
 
@@ -53,9 +55,9 @@ void main( void )
     }
     
     // smiley
-    select_texture( TextureGame );
-    select_region( RegionCharacter );
-    define_region_center( 1,243,  30,272 );
+    select_texture( TextureSoldier );
+    select_region( 0 );
+    //define_region_center( 1,243,  30,272 );
     
     // ------------------------------------
     // PART 2: DEFINE MAP AND TILES
@@ -96,11 +98,12 @@ void main( void )
     MapRoofs.map = &GridRoofs[ 0 ][ 0 ];
     
     // - - - - - - - - - - - - - - - - - - -
-    // 2.3: define our player character
+    // 2.3: define our "totally original" character
     
     // initially place player at map center
-    int PlayerX = tilemap_total_width( &MapGround ) / 2 + 2*TILE_SIZE;
-    int PlayerY = tilemap_total_height( &MapGround ) / 2;
+    initialize_borrowed_character();
+    chip_x = tilemap_total_width(&MapGround) / 2 + 2*TILE_SIZE;
+    chip_y = tilemap_total_height(&MapGround) / 2;
     
     // ------------------------------------
     // PART 3: MAIN LOOP
@@ -112,18 +115,11 @@ void main( void )
         select_gamepad( 0 );
         
         // move player character as pressed by player
-        int DeltaX, DeltaY;
-        gamepad_direction( &DeltaX, &DeltaY );
-        
-        PlayerX += CHAR_SPEED * DeltaX;
-        PlayerY += CHAR_SPEED * DeltaY;
-        
-        if( PlayerX < 0 ) PlayerX = 0;
-        if( PlayerY < 0 ) PlayerY = 0;
+        update_civilian_movement();
         
         // make camera follow the player
-        MapGround.camera_position.x = PlayerX;
-        MapGround.camera_position.y = PlayerY;
+        MapGround.camera_position.x = chip_x;
+        MapGround.camera_position.y = chip_y;
         
         // buttons A and B change zoom level
         if( gamepad_button_a() > 0 && FloorZ < 7*TILE_SIZE) FloorZ += 2;
@@ -149,28 +145,30 @@ void main( void )
         
         // 2) Draw character
         // draw character shadow
-        int ShadowScreenX = PlayerX + 8;
-        int ShadowScreenY = PlayerY + 8;
+        int ShadowScreenX = chip_x + 8;
+        int ShadowScreenY = chip_y + 8;
         tilemap_convert_position_to_screen( &MapGround, &ShadowScreenX, &ShadowScreenY );
-        select_texture( TextureGame );
-        select_region( RegionCharacter );
+        select_texture( TextureSoldier );
+        select_region( 0 );
         set_multiply_color( make_color_rgba(0,0,0,128) );
         float MapZoom = MapGround.camera_zoom;
         set_drawing_scale( MapZoom, MapZoom );
-        draw_region_zoomed_at( ShadowScreenX, ShadowScreenY );
+        set_drawing_angle( chip_angle );  // Añadir esta línea
+        draw_region_rotozoomed_at( ShadowScreenX, ShadowScreenY );  // Cambiar a rotozoomed
         set_multiply_color( color_white );
         
         // to draw elements in the map, like our character, we first
         // need to convert its map coordinates to screen coordinates
-        int PlayerScreenX = PlayerX;
-        int PlayerScreenY = PlayerY;
+        int PlayerScreenX = chip_x;
+        int PlayerScreenY = chip_y;
         tilemap_convert_position_to_screen( &MapGround, &PlayerScreenX, &PlayerScreenY );
         
         // now draw the character at the converted position
-        select_region( RegionCharacter );
-        float CharacterScale = MapZoom + 0.5 * (MapZoom - 1.0) * (MapZoom - 1.0);
+        select_region( 0 );
+        float CharacterScale = MapZoom + 0.8 * (MapZoom - 1.0) * (MapZoom - 1.0);
         set_drawing_scale( CharacterScale, CharacterScale );
-        draw_region_zoomed_at( PlayerScreenX, PlayerScreenY );
+        set_drawing_angle( chip_angle );  // Añadir esta línea
+        draw_region_rotozoomed_at( PlayerScreenX, PlayerScreenY );  // Cambiar a rotozoomed
         
         // 3) Draw walls
         DrawWalls();

@@ -15,7 +15,8 @@ enum Textures
 {
     TextureGame,
     TextureGround,
-    TextureWalls
+    TextureWalls,
+    TextureSoldier
 };
 
 // names for texture regions
