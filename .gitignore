@@ -1,29 +1,25 @@
-#------------------------------------
-# Final binaries from Vircon32 or PC
-#------------------------------------
-*.v32
-*.exe
+# Build outputs
+obj/
+bin/
+tools
+# Documentation (too large for repo, can be downloaded from Vircon32 site)
+docs/
 
-#--------------------------------------
-# Object/temporary files from Vircon32
-#--------------------------------------
-*.vtex
-*.vsnd
-*.vbin
-*.vmap
-*.asm
+# Old structure (if any remain)
+/maps/
 
-#--------------------------------------
-# Object/temporary files from the PC
-#--------------------------------------
-*.layout
-*.bak
-*.old
+# Jastro's attempts to "improve" the code
+*_backup_by_jastro.c
+*_fixed_by_jastro.c
+make_batman.bat
 
-#--------------------------------------
-# Provisional files/folders
-#--------------------------------------
-\[*\]
-\[*\].*
-*.svg
-*.mp3
+# Editor files
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.code-workspace
