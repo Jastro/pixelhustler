@@ -23,3 +23,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.code-workspace
+
+# Generated sprite previews (artgen)
+artgen/out/

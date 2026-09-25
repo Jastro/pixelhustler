@@ -7,6 +7,7 @@
     #include "../../include/core/Definitions.h"
     #include "../../include/core/Globals.h"
     #include "../../include/gameplay/Player.h"
+    #include "../../include/gameplay/Car.h"
 // *****************************************************************************
 
 
@@ -14,147 +15,178 @@
 //   PLAYER VARIABLES
 // ---------------------------------------------------------
 
-// Position
-int PlayerX;
-int PlayerY;
-float PlayerAngle = 0.0;  // Carra please fix this, humans don't have angles
-
-// Movement
-int PlayerSpeed = CHAR_SPEED;
+float PlayerX;
+float PlayerY;
+float PlayerAngle;
 bool IsPlayerMoving = false;
+int PlayerFrame = 0;
+int PlayerAnimTimer = 0;
 
 
-// ---------------------------------------------------------
-//   PLAYER MOVEMENT SYSTEM
-// ---------------------------------------------------------
-
-// This is 100% original human movement code
-// Definitely NOT copied from heli.c lines 238-295
-// Jastro says he coded this himself in 5 minutes
-void InitializePlayer()
+bool PlayerHitsCar( float x, float y )
 {
-    // Place player at map center
-    // (same as helicopter spawn but this is TOTALLY DIFFERENT)
-    PlayerX = tilemap_total_width( &MapGround ) / 2 + 2*TILE_SIZE;
-    PlayerY = tilemap_total_height( &MapGround ) / 2;
-    PlayerAngle = 0.0;
-    IsPlayerMoving = false;
+    float min_distance2 = (CAR_CIRCLE_RADIUS + PED_RADIUS) * (CAR_CIRCLE_RADIUS + PED_RADIUS);
 
-    // TODO: Add fuel system for humans (they need food right?)
-    // Carra: "Please don't add fuel to humans"
-    // Jastro: "But helicopters have it!"
+    for( int i = 0; i < MaxCars; i++ )
+    {
+        float fx = sin( CarAngle[ i ] ) * CAR_CIRCLE_SPACING;
+        float fy = -cos( CarAngle[ i ] ) * CAR_CIRCLE_SPACING;
+
+        for( int c = -1; c <= 1; c++ )
+        {
+            float dx = x - (CarX[ i ] + c * fx);
+            float dy = y - (CarY[ i ] + c * fy);
+
+            if( dx * dx + dy * dy < min_distance2 )
+              return true;
+        }
+    }
+
+    return false;
 }
 
+bool PlayerCanMoveTo( float x, float y )
+{
+    if( IsSolidAt( x, y ) )
+      return false;
+
+    if( PlayerHitsCar( PlayerX, PlayerY ) )
+      return true;
+
+    return !PlayerHitsCar( x, y );
+}
+
+
 // ---------------------------------------------------------
+//   INITIALIZATION
+// ---------------------------------------------------------
+// reset_soldier() from OceanStorm, "original" edition
+
+void InitializePlayer()
+{
+    // PlayerX = StartingX;   // Jastro: copied from OceanStorm. StartingX was the aircraft carrier.
+    //                        // Player spawned in the ocean. There is no ocean. Player spawned in the void.
+    PlayerX = 9 * TILE_SIZE;
+    PlayerY = 2.5 * TILE_SIZE;
+    PlayerAngle = -pi / 2;
+    IsPlayerMoving = false;
+    PlayerFrame = 0;
+    PlayerAnimTimer = 0;
+    IsPlayerInCar = false;
+    TargetFloorZ = FLOOR_Z_ON_FOOT;
+}
+
+
+// ---------------------------------------------------------
+//   UPDATE
+// ---------------------------------------------------------
+// update_soldier() from OceanStorm, minus swimming, bullets and bombs.
+// Removed features changelog (Jastro):
+//   - swimming  ("it's a city")
+//   - bombs     ("coming back as DLC")
+//   - drowning  ("ok this one was Carra")
 
 void UpdatePlayer()
 {
-    // Read inputs from the first gamepad
-    // This part is legit, even Jastro couldn't mess this up
     select_gamepad( 0 );
 
-    // Get direction input
-    int DeltaX, DeltaY;
-    gamepad_direction( &DeltaX, &DeltaY );
-
-    // ORIGINAL HUMAN MOVEMENT CODE (not helicopter code, trust me bro)
-    // Lines 270-294 from heli.c? Never heard of them!
-    if( DeltaX != 0 || DeltaY != 0 )
+    // BUG #7 (closed): "pressing B enters and exits the car in the same frame"
+    //   Reported by: Jastro
+    //   Jastro's analysis: "the car is haunted"
+    //   Root cause (Carra): player and car were both updated in the same
+    //   frame and both read the same B press. Fixed with the return below.
+    //   Jastro's reaction: "so it WASN'T haunted?" (visibly disappointed)
+    if( gamepad_button_b() == 1 )
     {
-        IsPlayerMoving = true;
+        if( TryEnterNearestCar() )
+          return;
+    }
 
-        // Move player (like a helicopter but on ground, very innovative)
-        PlayerX += PlayerSpeed * DeltaX;
-        PlayerY += PlayerSpeed * DeltaY;
+    int direction_x, direction_y;
+    gamepad_direction( &direction_x, &direction_y );
 
-        // Calculate movement angle (because humans need angles, obviously)
-        // Carra: "Why does the player have an angle?"
-        // Jastro: "For... uh... future features!"
-        if( DeltaX != 0 || DeltaY != 0 )
+    // (this time the else branch is different; reviewed by Carra, twice)
+    float new_x = PlayerX + direction_x * CHAR_SPEED;
+    if( PlayerCanMoveTo( new_x, PlayerY ) )
+      PlayerX = new_x;
+
+    float new_y = PlayerY + direction_y * CHAR_SPEED;
+    if( PlayerCanMoveTo( PlayerX, new_y ) )
+      PlayerY = new_y;
+
+    // NOTE: the player has no weapon. The player aims anyway. With intent.
+    IsPlayerMoving = (direction_x != 0 || direction_y != 0);
+
+    if( IsPlayerMoving )
+    {
+        PlayerAngle = atan2( direction_y, direction_x );
+
+        // Jastro's first attempt reused the heli rotor animation:
+        //   PlayerFrame = 1 - PlayerFrame;   // toggles 0/1 every frame
+        // Result: the character vibrated at 60 Hz. QA filed it as "possessed".
+        PlayerAnimTimer++;
+        if( PlayerAnimTimer >= PED_ANIM_SPEED )
         {
-            PlayerAngle = atan2( DeltaY, DeltaX );
+            PlayerAnimTimer = 0;
+            PlayerFrame = (PlayerFrame + 1) % FramesPerPed;
         }
-
-        // Animate player
-        // TODO: Add rotor animation
-        // Carra: "HUMANS DON'T HAVE ROTORS"
-        // Jastro: "Not with that attitude"
     }
     else
     {
-        IsPlayerMoving = false;
+        PlayerFrame = 0;
+        PlayerAnimTimer = 0;
     }
 
-    // Keep player within map bounds
-    // (even helicopters can't escape the map border)
-    if( PlayerX < 0 ) PlayerX = 0;
-    if( PlayerY < 0 ) PlayerY = 0;
-
-    int MapWidth = tilemap_total_width( &MapGround );
-    int MapHeight = tilemap_total_height( &MapGround );
-
-    if( PlayerX > MapWidth ) PlayerX = MapWidth;
-    if( PlayerY > MapHeight ) PlayerY = MapHeight;
-
-    // Make camera follow the player
-    // (this part was actually original, good job Jastro!)
-    MapGround.camera_position.x = PlayerX;
-    MapGround.camera_position.y = PlayerY;
-
-    // Zoom control with A and B buttons
-    // Helicopters change altitude, humans change... zoom level?
-    // Jastro's explanation: "It's called perspective, Carra!"
-    if( gamepad_button_a() > 0 && FloorZ < 7*TILE_SIZE)
-        FloorZ += 2;
-    if( gamepad_button_b() > 0 && FloorZ > 4*TILE_SIZE)
-        FloorZ -= 2;
-
-    // Update camera zoom based on floor height
-    MapGround.camera_zoom = ZToScale( FloorZ );
-    MapRoofs.camera_zoom = ZToScale( FloorZ - WALL_HEIGHT );
-
-    // Clip camera position to keep view within map
-    tilemap_clip_camera_position( &MapGround );
-    MapRoofs.camera_position = MapGround.camera_position;
+    UpdateCamera( PlayerX, PlayerY );
 }
 
+
+// ---------------------------------------------------------
+//   RENDERING
 // ---------------------------------------------------------
 
-void GetPlayerScreenPosition( int* screen_x, int* screen_y )
+void RenderPlayer()
 {
-    // Convert map coordinates to screen coordinates
-    *screen_x = PlayerX;
-    *screen_y = PlayerY;
-    tilemap_convert_position_to_screen( &MapGround, screen_x, screen_y );
+    if( IsPlayerInCar )
+      return;
+
+    select_texture( TextureSprites );
+    select_region( RegionFirstPed + PedJastro * FramesPerPed + PlayerFrame );
+
+    //   float draw_angle = PlayerAngle;            // v1: walks sideways like a crab
+    //   float draw_angle = PlayerAngle - pi / 2;   // v2: moonwalks. Jastro wanted to keep it.
+    float draw_angle = PlayerAngle + pi / 2;     // v3: Carra
+
+    set_multiply_color( make_color_rgba( 0, 0, 0, 100 ) );
+    DrawSpriteInMap( PlayerX + 2, PlayerY + 2, draw_angle, 1.0 );
+
+    set_multiply_color( color_white );
+    DrawSpriteInMap( PlayerX, PlayerY, draw_angle, 1.0 );
 }
 
 
 // ---------------------------------------------------------
-//   NOTES FROM THE DEVELOPMENT TEAM
+//   DEV TEAM NOTES
 // ---------------------------------------------------------
 
 /*
- * DEVELOPMENT LOG:
+ * $ git log --oneline -- src/gameplay/Player.c
  *
- * Jastro: "I've created a revolutionary movement system!"
- * Carra: "This is literally the helicopter code with fuel removed"
- * Jastro: "No it's not, look, I changed 'heli_x' to 'PlayerX'"
- * Carra: "..."
- * Jastro: "Ship it!"
+ *   f00dbad  carra   real collisions (the else branch now does something)
+ *   c0ffee1  carra   fix sprite angle (+pi/2)
+ *   deadbee  carra   fix B entering and exiting car on the same frame
+ *   1337abc  jastro  new character system
+ *   1337abd  jastro  new character system (fix)
+ *   1337abe  jastro  new character system (fix 2)
+ *   1337abf  jastro  asdasdasd
+ *   1337ac0  jastro  pls work
  *
- * TODO LIST:
- * - Remove helicopter comments (Jastro forgot about these)
- * - Add actual human walking animation instead of rotor frames
- * - Figure out why player needs an angle variable
- * - Implement proper ground collision (currently using ocean collision logic)
- * - Ask Jastro how he "coded" this so fast (spoiler: Ctrl+C, Ctrl+V)
+ * TODO:
+ *   - run with A              (assigned: Carra)
+ *   - steal cars with people inside, like real GTA  (assigned: Carra)
+ *   - pedestrians             (assigned: Carra)
+ *   - take credit for all of the above  (assigned: Jastro) [DONE]
  *
  * KNOWN BUGS:
- * - Player can walk on water (helicopter mode activated)
- * - No walking animation (rotors not spinning, literally unplayable)
- * - Zoom system makes no sense for ground movement
- * - Code structure suspiciously similar to OceanStorm
- *
- * Carra's rating: 2/10 (would be 0/10 but at least it compiles)
- * Jastro's rating: 11/10 (perfect original code, no notes)
+ *   - player aims without a weapon (wontfix: "it's his personality")
  */

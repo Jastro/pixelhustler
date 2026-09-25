@@ -21,6 +21,17 @@
 // - "Is this OpenGL?"
 //
 // Carra's patience level: 2/10
+//
+// Jastro's alternative implementation (PR #3, closed without merging):
+//
+//   void DrawWalls()
+//   {
+//       draw_rectangle( 0, 0, 640, 360, color_gray );   // "walls"
+//   }
+//
+// PR description: "simplified wall rendering by 99%"
+// Carra's review: "The whole screen is gray."
+// Jastro's reply: "Minimalist art style. Very indie."
 
 // ---------------------------------------------------------
 //   SINGLE-SIDE WALL DRAWING FUNCTIONS

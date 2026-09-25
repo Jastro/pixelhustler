@@ -6,6 +6,9 @@
         <texture path="../../obj/TextureGame.vtex" />
         <texture path="../../obj/TextureGround.vtex" />
         <texture path="../../obj/TextureWalls.vtex" />
+        <texture path="../../obj/TextureSprites.vtex" />
+        <texture path="../../obj/TextureDialog.vtex" />
+        <texture path="../../obj/TexturePortraits.vtex" />
     </textures>
     <sounds />
 </rom-definition>
