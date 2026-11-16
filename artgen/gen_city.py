@@ -83,6 +83,12 @@ ICONS = {
     "gamepad": [
         "0000000000", "0111111110", "1111111111", "1011111101", "0001111000",
         "1011110101", "1111111111", "1111001111", "0110000110", "0000000000"],
+    "cup": [
+        "0000000000", "0010101000", "0101010000", "0000000000", "1111111100",
+        "1111111111", "1111111101", "1111111111", "0111111100", "0011111000"],
+    "house": [
+        "0000110000", "0001111000", "0011111100", "0111111110", "1111111111",
+        "0110000110", "0110110110", "0110110110", "0110110110", "0111111110"],
     "jelly": [
         "0011111100", "0111111110", "1111111111", "1111111111", "1111111111",
         "0101010100", "0101010100", "1010101010", "0101010100", "1010101000"],
@@ -438,11 +444,51 @@ def make_wall(i):
             for yy in range(y + 2, y + 12, 3):
                 d.line([(30, yy), (48, yy)], fill=rgba((40, 38, 60)))
             d.point((52, y + 2), fill=rgba((170, 255, 0)) if rnd.random() < 0.5 else rgba(CURB_NEON))
-    else:
+    elif i == 7:
         sign_panel(img, "gamepad", (170, 255, 0))
         windows(img, rnd, 1, y0=80)
         door(img, (170, 255, 0))
+    elif i == 8:
+        storefront(img, "cup", "CAFE", (0, 235, 255))
+    elif i == 9:
+        storefront(img, "joystick", "JOYZONE", (255, 40, 170))
+    elif i == 10:
+        storefront(img, "gamepad", "VIRCON|WARS", (255, 225, 60), wide_door=True)
+    elif i == 11:
+        storefront(img, "house", "CHIP", (255, 140, 0))
+    elif i == 12:
+        sign_panel(img, "jelly", (0, 235, 255))
+        windows(img, rnd, 2, y0=78)
+    elif i == 13:
+        windows(img, rnd, 6, cols=2, x0=14, w=20, y0=14, h=12, gy=10, gx=12)
+    elif i == 14:
+        sign_panel(img, "ghost", (255, 140, 0))
+        windows(img, rnd, 2, y0=78)
+    else:
+        windows(img, rnd, 3, y0=20, h=18, gy=16)
+        door(img, (190, 90, 255))
     return img
+
+
+def storefront(img, icon, text, color, wide_door=False):
+    d = ImageDraw.Draw(img)
+    lines = text.split("|")
+    top = 14
+    for n, line in enumerate(lines):
+        w = len(line) * 8 - 2
+        from_x = (T - w) // 2
+        draw_text(img, from_x, top + n * 13, line, color, 2)
+    icon_y = top + len(lines) * 13 + 6
+    draw_icon(img, 30, icon_y, icon, color, 2)
+    d.rectangle([6, 96, T - 7, WALL_H - 22], fill=rgba((12, 10, 22)))
+    d.rectangle([8, 98, T - 9, WALL_H - 24], fill=rgba(mix(color, (0, 0, 0), 0.72)))
+    for x in range(8, T - 8, 12):
+        d.line([(x, 98), (x, WALL_H - 24)], fill=rgba((12, 10, 22)))
+    dx0, dx1 = (20, 59) if wide_door else (28, 51)
+    d.rectangle([dx0 - 2, WALL_H - 44, dx1 + 2, WALL_H - 5], fill=rgba((10, 8, 18)))
+    d.rectangle([dx0, WALL_H - 42, dx1, WALL_H - 5], fill=rgba(mix(color, (255, 255, 255), 0.25)))
+    d.line([((dx0 + dx1) // 2, WALL_H - 42), ((dx0 + dx1) // 2, WALL_H - 5)], fill=rgba((10, 8, 18)))
+    glow_line(img, [(dx0 - 4, WALL_H - 47), (dx1 + 4, WALL_H - 47)], color, width=2, glow=2)
 
 
 # -------------------------------------------------------------------------
@@ -451,7 +497,7 @@ def make_wall(i):
 
 SIGN_SLOTS = [13, 14, 15, 16, 17, 18, 19, 23, 25, 26, 27, 28, 29, 33, 34, 35]
 SIGNS = ["VIRCOBAN", "PUZTRIX", "BLOCKDUDE", "ZNAX", "WATERNET", "RUBIDO", "OCEAN|STORM", "VITRIS",
-         "HAUNTY", "JELLYFISH", "FLAPPY", "WORM", "BLIPS", "CARRA HQ", "BIOS", "V32"]
+         "HAUNTY", "JELLYFISH", "FLAPPY", "WORM", "BLIPS", "CARRA HQ", "CHIP|BUSTER", "V32"]
 SPECIAL_SLOTS = {40: "helipad", 41: "fan", 42: "heatsink"}
 
 ROOF_ROLES = {36: (0, 0), 38: (1, 0), 37: (2, 0), 49: (0, 1), 24: (1, 1), 39: (2, 1), 46: (0, 2), 48: (1, 2), 47: (2, 2)}
@@ -483,15 +529,16 @@ def build():
     put(40, roof_helipad(center))
     put(41, roof_fan(center))
     put(42, roof_heatsink(center))
-    for i in (43, 44, 45):
-        put(i, center)
+    put(43, roof_sign(center, "DISCORD|CAFE", (0, 235, 255)))
+    put(44, roof_sign(center, "JOYZONE", (255, 40, 170)))
+    put(45, roof_sign(center, "VIRCON|WARS", (255, 225, 60)))
 
     ground.save(os.path.join(ROOT, "assets", "textures", "TextureGround.png"))
     ground.save(os.path.join(ROOT, "assets", "maps", "TileSetCity.png"))
 
-    walls = Image.new("RGBA", (8 * T, WALL_H), (0, 0, 0, 0))
-    for i in range(8):
-        walls.paste(make_wall(i), (i * T, 0))
+    walls = Image.new("RGBA", (8 * T, 2 * WALL_H), (0, 0, 0, 0))
+    for i in range(16):
+        walls.paste(make_wall(i), ((i % 8) * T, (i // 8) * WALL_H))
     walls.save(os.path.join(ROOT, "assets", "textures", "TextureWalls.png"))
     return ground, walls
 

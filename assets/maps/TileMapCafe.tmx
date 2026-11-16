@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.1" tiledversion="2018.09.12" orientation="orthogonal" renderorder="right-down" width="16" height="10" tilewidth="40" tileheight="40" infinite="0" nextlayerid="2" nextobjectid="1">
+ <tileset firstgid="1" source="TileSetInterior.tsx"/>
+ <layer id="1" name="MapCafe" width="16" height="10">
+  <data encoding="csv">
+4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+4,6,6,7,8,8,8,9,6,10,6,11,6,6,6,4,
+4,21,2,3,2,3,2,3,2,3,2,3,2,3,21,4,
+4,2,3,18,3,2,18,2,3,13,14,16,14,15,22,4,
+4,3,2,17,2,3,17,3,2,3,20,3,20,3,2,4,
+4,2,3,19,3,2,19,2,3,2,3,2,3,2,22,4,
+4,3,2,18,2,3,18,3,2,3,2,3,2,3,2,4,
+4,2,3,17,3,2,17,2,3,2,3,2,3,2,3,4,
+4,3,2,19,2,3,19,23,23,3,2,3,2,3,2,4,
+4,4,4,4,4,4,4,24,24,4,4,4,4,4,4,4
+</data>
+ </layer>
+</map>

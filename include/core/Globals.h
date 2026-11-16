@@ -41,10 +41,14 @@ float ScaleToZ( float Scale );
 void set_drawing_scale_x( float scale );
 
 bool IsSolidAt( float x, float y );
+bool IsBuildingAt( float x, float y );
+bool IsMapPointVisible( float map_x, float map_y, float margin );
 
 void DrawSpriteInMap( float map_x, float map_y, float angle, float scale );
 
 void UpdateCamera( float target_x, float target_y );
+
+void DrawRect( int x, int y, int w, int h, int color );
 
 
 // *****************************************************************************

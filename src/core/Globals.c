@@ -92,6 +92,31 @@ void set_drawing_scale_x( float scale )
 // Reply (Jastro): "Against people saying there are no collisions."
 // Status: shipped. It's in a released game. On a real console. Forever.
 
+bool IsBuildingAt( float x, float y )
+{
+    if( x < 0 || y < 0 )
+      return false;
+
+    int tile_x = x / TILE_SIZE;
+    int tile_y = y / TILE_SIZE;
+
+    if( tile_x >= MapTilesX || tile_y >= MapTilesY )
+      return false;
+
+    return GridRoofs[ tile_y ][ tile_x ] != 0;
+}
+
+float VisibleMinX = 0;
+float VisibleMinY = 0;
+float VisibleMaxX = 0;
+float VisibleMaxY = 0;
+
+bool IsMapPointVisible( float map_x, float map_y, float margin )
+{
+    return map_x > VisibleMinX - margin && map_x < VisibleMaxX + margin &&
+           map_y > VisibleMinY - margin && map_y < VisibleMaxY + margin;
+}
+
 bool IsSolidAt( float x, float y )
 {
     if( x < 0 || y < 0 )
@@ -159,4 +184,22 @@ void UpdateCamera( float target_x, float target_y )
     MapGround.camera_position.x = fmax( min_x, fmin( max_x, MapGround.camera_position.x ) );
     MapGround.camera_position.y = fmax( min_y, fmin( max_y, MapGround.camera_position.y ) );
     MapRoofs.camera_position = MapGround.camera_position;
+
+    float ground_half_w = (screen_width / 2) / MapGround.camera_zoom;
+    float ground_half_h = (screen_height / 2) / MapGround.camera_zoom;
+    VisibleMinX = MapGround.camera_position.x - ground_half_w;
+    VisibleMaxX = MapGround.camera_position.x + ground_half_w;
+    VisibleMinY = MapGround.camera_position.y - ground_half_h;
+    VisibleMaxY = MapGround.camera_position.y + ground_half_h;
+}
+
+
+void DrawRect( int x, int y, int w, int h, int color )
+{
+    select_texture( TextureSprites );
+    select_region( RegionWhite );
+    set_multiply_color( color );
+    set_drawing_scale( w / 8.0, h / 8.0 );
+    draw_region_zoomed_at( x, y );
+    set_multiply_color( color_white );
 }

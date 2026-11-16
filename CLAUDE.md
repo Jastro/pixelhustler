@@ -1,0 +1,47 @@
+# Pixel Hustler: Vircon Wars
+
+GTA2-style top-down game for the **Vircon32** virtual console, by Jastro (the user) and Carra (creator of Vircon32). Follow-up to their game OceanStorm (github.com/Jastro/OceanStorm). Repo: github.com/Jastro/pixelhustler (remote uses SSH).
+
+## Working with the user
+- Talk to the user in **Spanish**.
+- **Never** add Claude as co-author (no `Co-Authored-By`) in commits or PRs. Commit/push only when asked.
+- Code comments: **only meme comments, in English**, and only in code derived from OceanStorm (heli/soldier/dialog/etc.). New code (physics, traffic, pedestrians…) gets **no comments at all**. Meme style = programmer artifacts: Jastro's commented-out failed attempts followed by Carra's fix, fake commit logs / git blame / PR reviews / bug tickets, FIXME(jastro)/WONTFIX(carra). Running joke: Carra writes everything, Jastro takes the credit ("nobody will notice").
+- All art is made **procedurally with Pillow** (user's choice, not AI image generation). Don't take desktop screenshots to verify (on KDE Wayland it captures the wrong window); ask the user for screenshots.
+- The user tests with `./Run.sh`. Emulator keyboard: arrows=D-pad, X=A, Z=B, S=X, A=Y, **Q=L, W=R**, Enter=Start. In game **L+R (Q+W)** toggles a CPU usage overlay.
+
+## Toolchain (outside the repo, in `../tools/`)
+- `../tools/DevTools/` official devtools (compile, assemble, png2vircon, tiled2vircon, packrom…). Std headers in `../tools/DevTools/include/`.
+- `../tools/Emulator/Vircon32 <rom.v32>` desktop emulator. Log: `../tools/Emulator/DebugLog.txt`.
+- **The emulator pauses when its window has no focus.** Launching it from Claude's shell (background) never actually runs the game; "Starting main loop" in the log only proves the ROM loaded. Runtime behaviour can only be verified by the user (or with Xvfb, not installed). It ignores SIGTERM (use SIGINT/`kill -9`).
+- Python with Pillow: `../tools/pyenv/bin/python` (run artgen scripts from `artgen/`).
+- `../reference/` has OceanStorm, the official ConsoleSoftware examples, Vircon32Documents (spec PDFs) and the community repo (CommunityContent/Games = community game names).
+- Build: `./Make.sh` (Linux) / `Make.bat` (Windows) → `bin/PixelHustler.v32`. `./Run.sh` = build + launch. Every new texture must be added to `assets/rom/PixelHustler.xml` (order = texture ID, must match `enum Textures` in Definitions.h), Make.sh and Make.bat.
+- Vircon32 C quirks: arrays `int[ 32 ] name;`, strings are `int*`, single translation unit (main `#include`s every `.c`), CPU budget 250k cycles/frame (15 MHz, 60 fps), textures ≤1024x1024, 4096 regions per texture. Spanish chars in strings via macros in DialogTexts.h (`a_`, `n_`, `interr`…).
+
+## Code layout
+- `src/main/PixelHustler.c` main loop with scenes: Title → Intro → Interior (Chip's room, upstairs) → stairs → ground floor → front door → City ↔ Interior; fade transitions.
+- `src/core/` Globals (camera, collisions, DrawRect, visibility culling), CityData.c/InteriorData.c (**generated**).
+- `src/gameplay/` Car.c (OceanStorm heli port + arcade physics: inertia, brake/reverse, handbrake drift on A), Player.c (soldier port), Traffic.c (AI cars on lanes, random turns, traffic lights at all intersections, exit/respawn at map edges, stealing AI cars), Pedestrians.c (walk sidewalk rings, cross at crosswalks when safe, knocked by fast cars), Objective.c (stages + arrow + ring), Weapons.c (OceanStorm weapon/bullet/pickup port: pistol/shotgun/SMG, A shoots, X reloads / buys at the AMMO shop (SHOP_X/Y), L/R switch; limited ammo = magazine + reserve; money; respawning weapon/ammo pickups, cash dropped by killed peds; HUD), Corpses.c (blood puddle stays, body fades after CORPSE_BODY_FRAMES), Police.c (GTA2 wanted level 0-4 from crimes via ReportCrime, recruits AI cars as police chasers with sirens, decays when unseen; police cars stop near you and deploy cops on foot (PedCop sprite) who arrest you (wanted 1) or shoot (wanted 2+); dying to cop bullets = BUSTED; BUSTED also when stopped in a car next to a police car). Explosions.c (OceanStorm fx.c explosion port + car health: bullets/crashes damage cars, smoke <80, fire <35 then burns down and explodes; explosion radius kills peds/cops, hurts player, chain-reacts; charred wreck respawns offscreen after 20 s). Traffic.c car moods: shot cars flee (fast, ignore lights/peds) or attack (chase + run you over); police/attack use grid chase. Player.c: health, run-over damage, WASTED/BUSTED → respawn at home losing weapons (busted also half money). Peds panic and run on gunfire.
+- `src/scenes/` Title.c (menu: new game / skip intro / language), Intro.c (prologue), Interior.c (multi-map interiors: Café, HomeUp = Chip's room where the game starts, HomeDown = kitchen/living room with front door; stairs tiles trigger transitions; home entrance in the city is enterable with B).
+- `src/ui/` Dialog.c (OceanStorm dialog system + typewriter, portrait + name strip), DialogTexts/ChatTexts/CafeTexts (EN/ES texts, `GameLanguage` 1 = Spanish default).
+- `include/rendering/DrawWalls.h` Carra's scanline 3D walls (16 facade textures in 2 rows).
+- `src/core/Audio.c` music + sfx: OceanStorm music as-is (menu=title/intro, turrets=city, planes=1-4 stars, boss=5-6 stars, ending=interiors) on ChannelMusic 15; siren loop (ch 14, volume by distance), heli.wav as car engine loop (ch 13, pitch by speed), lowfuel when your car burns. `PlaySfx`/`PlaySfxAt` (only if on screen). Sounds: `enum Sounds` in Definitions.h = order in PixelHustler.xml; wav2vircon lines in Make.sh/Make.bat. OceanStorm wavs copied into `assets/music` + `assets/sounds`; new ones (siren, cash, reload, door, busted, thud, wanted) from `artgen/gen_sounds.py` (stdlib synth, no numpy).
+
+## Art generators (`artgen/`, Pillow) — regenerate, don't hand-edit outputs
+- `gen_map.py` city layout (grid of lots/roads, story buildings, entrances, crosswalks) → TileMapCity.tmx, TileMapWalls.tmx, **CityData.h/.c**. City is 31x21 tiles of 80px.
+- `gen_city.py` ground/roof tileset (chip roofs, PCB sidewalks, neon community signs) + facades; reads layout from `artgen/src/TextureGround_layout.png`.
+- `gen_sprites.py` cars, pedestrians (10 types, last = cop), ENTER/EXIT signs (copied from OceanStorm), arrow, ring, traffic light → TextureSprites.png (layout must match Definitions.h regions; ped regions start at 200).
+- `gen_gui.py` dialog frame + portraits (Jastro, Carra, Chip, Joyrider, generic "?"). **Check the whole `portrait()` function after editing** (duplicated blocks happened before). Previews in `artgen/out/` (always show all 5 portraits).
+- `gen_weapons.py` → TextureWeapons.png (256x160), pasting OceanStorm assets copied into `artgen/src/oceanstorm_*.png` (bullet, blood, pickups, explosion) + procedural ammo box, cash, wanted badge, AMMO shop sign, smoke puff.
+- `gen_intro.py` room close-up + chat UI; `gen_title.py` title screen from the real city; `gen_interior.py` interiors from ASCII layouts (CAFE, HOME_UP, HOME_DOWN; shared 10x5 tileset, home uses wood-floor variants) → TileMap{Cafe,HomeUp,HomeDown}.tmx + InteriorData (sizes per map). New maps need a tiled2vircon line in Make.sh/Make.bat and an embedded grid in Interior.c.
+- Art direction: "arcadepunk" GTA2 top-down; the city is a Vircon32 motherboard at night (buildings = chips, sidewalks = PCB traces, neon signs with community game names). The game is an ode to the Vircon32 community.
+
+## Lore (`lore/pixel_hustler_vircon_wars_historia.pdf`, Spanish)
+Chip Buster (player, new dev) is finishing Pixel Hustler; Jastro publicly accuses it of plagiarising Ocean Storm; it slowly turns out Carra really made Ocean Storm. Chip and Jastro are two sides of the same coin. Other characters: Joyrider (veteran, owns the JoyZone arcade), R2D2Rigo (grumpy, Virconstein), Paletochen (tester), Discord NPCs (Ridote = most sarcastic, Totespare, Freak1337, kidandcat, Nezbo, javifugitivo, Runig666…). Flow: Prologue (Discord avalanche) → Discord Café → JoyZone (hack minigame, OS_DEV_CHAT_01) → Vircon Wars presentation (Jastro's zone, top-down shooting + terminals) → finale (the cartridge). The user said characters may need updating because the community changed.
+- Looks: **Jastro** = black hair swept to one side with shaved sides, square hipster glasses, beard (slim, not too big), serious face, green jacket. **Carra** = buzz cut with receding hairline, short beard, thin rectangular glasses, black Vircon32 t-shirt, coffee mug. **Chip** = orange bomber, spiky black hair. **Joyrider** = purple JoyZone cap, moustache + goatee.
+
+## Current state (2026-09-28)
+- Last commit on main: `0d6a3af "new graphics"`. **Everything since is uncommitted — the user asked not to commit yet.** `lore/` is untracked (user decides whether to commit the PDF).
+- Done and tested by the user: title menu, prologue (room → chat → Chip dialog → objective), expanded generated city, traffic + lights + pedestrians (city ~39% CPU after optimisation), Discord Café interior prototype (~5% CPU) with Joyrider/Rigo/Carra/ambient dialogs and objective stages (café → Joyrider → Rigo → "JoyZone (próximamente)").
+- Story buildings with entrances already prepared (EntranceX/Y in CityData): Café (enterable), JoyZone, Vircon Wars venue, Chip's home (start). CARRA HQ has a sign only.
+- Pending ideas: JoyZone interior + hacking minigame, rest of Rigo's Virconstein dialog, Vircon Wars venue, more interiors, performance of dense city views.

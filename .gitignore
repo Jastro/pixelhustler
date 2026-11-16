@@ -26,3 +26,4 @@ Thumbs.db
 
 # Generated sprite previews (artgen)
 artgen/out/
+artgen/__pycache__/

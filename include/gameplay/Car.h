@@ -28,7 +28,14 @@ extern float[ MaxCars ] CarAngle;
 extern float[ MaxCars ] CarVelX;
 extern float[ MaxCars ] CarVelY;
 extern int[ MaxCars ] CarType;
+extern bool[ MaxCars ] CarIsAI;
+extern float[ MaxCars ] CarFwdX;
+extern float[ MaxCars ] CarFwdY;
+extern float[ MaxCars ] CarSpeed;
 extern int CurrentCar;
+extern bool[ MaxCars ] CarStolen;
+extern bool[ MaxCars ] CarSirenOn;
+extern int[ NumParkedCars ] ParkedCarTypes;
 // extern float[ MaxCars ] CarAltitude;   // "just in case" - Jastro. Removed - Carra.
 
 extern float CarThrottle;
@@ -48,6 +55,7 @@ void RenderCarSigns();
 bool TryEnterNearestCar();
 void ExitCar();
 float GetCarForwardSpeed( int car );
+void PlaceCar( int car, float tile_x, float tile_y, float angle, int type );
 
 
 // *****************************************************************************

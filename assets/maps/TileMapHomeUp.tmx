@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.1" tiledversion="2018.09.12" orientation="orthogonal" renderorder="right-down" width="14" height="8" tilewidth="40" tileheight="40" infinite="0" nextlayerid="2" nextobjectid="1">
+ <tileset firstgid="1" source="TileSetInterior.tsx"/>
+ <layer id="1" name="MapHomeUp" width="14" height="8">
+  <data encoding="csv">
+4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+4,6,6,25,25,6,26,6,6,6,25,25,6,4,
+4,41,28,27,29,41,40,35,35,41,40,41,30,4,
+4,40,41,42,41,40,41,40,41,40,41,40,31,4,
+4,41,40,41,40,32,32,32,32,41,40,41,40,4,
+4,40,41,40,41,32,32,32,32,40,41,40,33,4,
+4,44,40,41,40,41,40,41,40,41,40,41,33,4,
+4,4,4,4,4,4,4,4,4,4,4,4,4,4
+</data>
+ </layer>
+</map>

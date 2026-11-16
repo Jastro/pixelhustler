@@ -21,6 +21,9 @@ extern float PlayerAngle;
 extern bool IsPlayerMoving;
 extern int PlayerFrame;
 extern int PlayerAnimTimer;
+extern int PlayerHealth;
+extern int PlayerDownTimer;
+extern int PlayerStunTimer;
 // extern float PlayerFuel;   // PR rejected: "humans don't need fuel" - Carra
 
 
@@ -31,6 +34,12 @@ extern int PlayerAnimTimer;
 void InitializePlayer();
 void UpdatePlayer();
 void RenderPlayer();
+void PlayerTakeDamage( int damage );
+void PlayerTakeDamageFrom( int damage, int death_reason );
+void UpdatePlayerHazards();
+void StartPlayerDown( int reason );
+void UpdatePlayerDown();
+void RenderPlayerStatus( int y );
 
 
 // *****************************************************************************

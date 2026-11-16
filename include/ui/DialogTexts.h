@@ -16,16 +16,8 @@ struct DialogWindow
     DialogText[ 2 ] texts;
 };
 
-extern DialogWindow DW_Intro1;
-extern DialogWindow DW_Intro2;
-extern DialogWindow DW_Intro3;
-extern DialogWindow DW_Intro4;
-extern DialogWindow DW_Intro5;
-extern DialogWindow DW_Intro6;
-extern DialogWindow DW_FirstCar1;
-extern DialogWindow DW_FirstCar2;
-extern DialogWindow DW_FirstCar3;
-extern DialogWindow DW_FirstCar4;
+extern DialogWindow DW_ChipReact1;
+extern DialogWindow DW_ChipReact2;
 
 // para facilitar los caracteres en español
 #define a_      "\xE1"   // á
@@ -34,6 +26,7 @@ extern DialogWindow DW_FirstCar4;
 #define o_      "\xF3"   // ó
 #define u_      "\xFA"   // ú
 #define n_      "\xF1"   // ñ
+#define u_diere "\xFC"   // ü
 #define exclam  "\xA1"   // ¡
 #define interr  "\xBF"   // ¿
 

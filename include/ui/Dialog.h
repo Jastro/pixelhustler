@@ -32,6 +32,8 @@ void RenderDialog();
 void QueueDialog( DialogWindow* dialog );
 void StartDialogSequence();
 void InitializeDialog();
+int* PortraitName( int region );
+int PortraitColor( int region );
 
 
 // *****************************************************************************

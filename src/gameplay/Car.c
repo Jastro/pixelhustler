@@ -8,6 +8,9 @@
     #include "../../include/core/Globals.h"
     #include "../../include/gameplay/Player.h"
     #include "../../include/gameplay/Car.h"
+    #include "../../include/gameplay/Traffic.h"
+    #include "../../include/gameplay/Police.h"
+    #include "../../include/gameplay/Explosions.h"
 // *****************************************************************************
 
 // *****************************************************************************
@@ -36,8 +39,15 @@ float[ MaxCars ] CarAngle;
 float[ MaxCars ] CarVelX;
 float[ MaxCars ] CarVelY;
 int[ MaxCars ] CarType;
+bool[ MaxCars ] CarIsAI;
+float[ MaxCars ] CarFwdX;
+float[ MaxCars ] CarFwdY;
+float[ MaxCars ] CarSpeed;
 int CurrentCar = -1;
-bool FirstCarDialogShown = false;
+bool[ MaxCars ] CarStolen;
+bool[ MaxCars ] CarSirenOn;
+int PoliceCrashCooldown = 0;
+int[ NumParkedCars ] ParkedCarTypes = { CarTypeSport, CarTypeRed, CarTypeVan, CarTypeBlue };
 
 float CarThrottle = 0;
 float CarSteer = 0;
@@ -56,6 +66,20 @@ void PlaceCar( int car, float tile_x, float tile_y, float angle, int type )
     CarVelX[ car ] = 0;
     CarVelY[ car ] = 0;
     CarType[ car ] = type;
+    CarIsAI[ car ] = false;
+    ResetCarHealth( car );
+}
+
+// ---------------------------------------------------------
+
+void UpdateCarKinematics()
+{
+    for( int i = 0; i < MaxCars; i++ )
+    {
+        CarFwdX[ i ] = sin( CarAngle[ i ] );
+        CarFwdY[ i ] = -cos( CarAngle[ i ] );
+        CarSpeed[ i ] = CarVelX[ i ] * CarFwdX[ i ] + CarVelY[ i ] * CarFwdY[ i ];
+    }
 }
 
 // ---------------------------------------------------------
@@ -79,7 +103,7 @@ void InitializeCars()
         );
     }
 
-    for( int ped = 0; ped < 4; ped++ )
+    for( int ped = 0; ped < NumPedTypes; ped++ )
     {
         for( int f = 0; f < FramesPerPed; f++ )
         {
@@ -91,17 +115,35 @@ void InitializeCars()
         }
     }
 
+    for( int ped = 0; ped < NumPedTypes; ped++ )
+    {
+        int x = (ped % 8) * PED_SPRITE;
+        int y = CORPSE_ATLAS_Y + (ped / 8) * PED_SPRITE;
+
+        select_region( RegionFirstCorpse + ped );
+        define_region( x, y, x + PED_SPRITE - 1, y + PED_SPRITE - 1, x + PED_SPRITE / 2, y + PED_SPRITE / 2 );
+    }
+
     select_region( RegionEnterSign );
     define_region( 130, 82, 196, 107, 164, 94 );
     select_region( RegionExitSign );
     define_region( 130, 111, 196, 136, 165, 123 );
+    select_region( RegionArrow );
+    define_region( 200, 82, 223, 105, 211, 93 );
+    select_region( RegionRing );
+    define_region( 200, 110, 239, 149, 219, 129 );
+    select_region( RegionWhite );
+    define_region_topleft( 240, 82, 247, 89 );
+    select_region( RegionLightBox );
+    define_region( 130, 150, 143, 181, 136, 165 );
+    select_region( RegionLampGlow );
+    define_region( 150, 150, 173, 173, 161, 161 );
 
-    PlaceCar( 0,  8.5,  8.0,  0,        CarTypeRed    );
-    PlaceCar( 1,  9.5,  4.0,  pi,       CarTypeTaxi   );
-    PlaceCar( 2,  3.5,  7.5,  0,        CarTypeBlue   );
-    PlaceCar( 3,  1.5,  3.5,  pi / 2,   CarTypePolice );
-    PlaceCar( 4, 12.0,  6.5, -pi / 2,   CarTypeSport  );
-    PlaceCar( 5, 12.0, 11.5,  pi / 2,   CarTypeVan    );
+    for( int i = 0; i < NumParkedCars; i++ )
+      PlaceCar( i, ParkingX[ i ] / 80.0, ParkingY[ i ] / 80.0, 0, ParkedCarTypes[ i ] );
+
+    InitializeTraffic();
+    UpdateCarKinematics();
 
     CurrentCar = -1;
 }
@@ -111,7 +153,57 @@ void InitializeCars()
 //   COLLISIONS
 // ---------------------------------------------------------
 
-bool CarHitsBuilding( float x, float y, float angle )
+// The heli was clamped to the world: heli_x = clamp(heli_x, 0, WorldWidth).
+// Jastro deleted the clamp because "cars don't fly". Cars drove off the edge of the world.
+// Carra put an invisible wall back. Jastro: "GTA doesn't have walls, make it round".
+// Carra made it wrap around. The city is now a donut. Jastro: "a torus, actually". He googled it.
+bool CarBlockedAt( int car, float x, float y )
+{
+    bool driven_by_player = IsPlayerInCar && car == CurrentCar;
+    bool free_roaming = driven_by_player || (CarIsAI[ car ] && CarMood[ car ] == MoodNormal);
+    float cx = CarX[ car ];
+    float cy = CarY[ car ];
+
+    if( cx < 0 || cy < 0 || cx >= MapTilesX * TILE_SIZE || cy >= MapTilesY * TILE_SIZE )
+      free_roaming = true;
+
+    if( free_roaming )
+      return IsBuildingAt( x, y );
+
+    if( x < 0 || y < 0 || x >= MapTilesX * TILE_SIZE || y >= MapTilesY * TILE_SIZE )
+      return true;
+
+    return IsSolidAt( x, y );
+}
+
+bool CarCollidesAt( int car, float x, float y, float angle );
+
+void WrapPlayerCar( int car )
+{
+    float width = MapTilesX * TILE_SIZE;
+    float height = MapTilesY * TILE_SIZE;
+    float old_x = CarX[ car ];
+    float old_y = CarY[ car ];
+
+    if( CarX[ car ] < 0 ) CarX[ car ] += width;
+    else if( CarX[ car ] >= width ) CarX[ car ] -= width;
+
+    if( CarY[ car ] < 0 ) CarY[ car ] += height;
+    else if( CarY[ car ] >= height ) CarY[ car ] -= height;
+
+    if( CarX[ car ] == old_x && CarY[ car ] == old_y )
+      return;
+
+    if( CarCollidesAt( car, CarX[ car ], CarY[ car ], CarAngle[ car ] ) )
+    {
+        CarX[ car ] = old_x - CarVelX[ car ];
+        CarY[ car ] = old_y - CarVelY[ car ];
+        CarVelX[ car ] *= -CAR_BOUNCE;
+        CarVelY[ car ] *= -CAR_BOUNCE;
+    }
+}
+
+bool CarHitsBuilding( int car, float x, float y, float angle )
 {
     float forward_x = sin( angle );
     float forward_y = -cos( angle );
@@ -120,11 +212,11 @@ bool CarHitsBuilding( float x, float y, float angle )
     float half_length = CAR_SPRITE_H / 2 - 4;
     float half_width = CAR_SPRITE_W / 2 - 4;
 
-    if( IsSolidAt( x, y ) ) return true;
-    if( IsSolidAt( x + forward_x * half_length, y + forward_y * half_length ) ) return true;
-    if( IsSolidAt( x - forward_x * half_length, y - forward_y * half_length ) ) return true;
-    if( IsSolidAt( x + side_x * half_width, y + side_y * half_width ) ) return true;
-    if( IsSolidAt( x - side_x * half_width, y - side_y * half_width ) ) return true;
+    if( CarBlockedAt( car, x, y ) ) return true;
+    if( CarBlockedAt( car, x + forward_x * half_length, y + forward_y * half_length ) ) return true;
+    if( CarBlockedAt( car, x - forward_x * half_length, y - forward_y * half_length ) ) return true;
+    if( CarBlockedAt( car, x + side_x * half_width, y + side_y * half_width ) ) return true;
+    if( CarBlockedAt( car, x - side_x * half_width, y - side_y * half_width ) ) return true;
     return false;
 }
 
@@ -172,7 +264,7 @@ int CarHitsOtherCar( int self, float x, float y, float angle )
 
 bool CarCollidesAt( int car, float x, float y, float angle )
 {
-    if( CarHitsBuilding( x, y, angle ) )
+    if( CarHitsBuilding( car, x, y, angle ) )
       return true;
 
     return CarHitsOtherCar( car, x, y, angle ) >= 0;
@@ -255,6 +347,11 @@ void UpdateCar()
       CarThrottle = -1;
 
     CarHandbrake = (gamepad_button_a() > 0);
+
+    // OceanStorm's heli had no siren. Jastro wanted the siren to play the OceanStorm theme.
+    // There are no sounds. It plays it silently. In Jastro's head, it slaps.
+    if( gamepad_button_x() == 1 && CarType[ CurrentCar ] == CarTypePolice )
+      CarSirenOn[ CurrentCar ] = !CarSirenOn[ CurrentCar ];
 }
 
 
@@ -276,8 +373,15 @@ void MoveCarAxis( int car, float delta_x, float delta_y )
     float new_x = CarX[ car ] + delta_x;
     float new_y = CarY[ car ] + delta_y;
 
-    if( CarHitsBuilding( new_x, new_y, CarAngle[ car ] ) )
+    bool driven_by_player = IsPlayerInCar && car == CurrentCar;
+
+    if( CarHitsBuilding( car, new_x, new_y, CarAngle[ car ] ) )
     {
+        float impact = fabs( delta_x ) + fabs( delta_y );
+
+        if( impact > CAR_CRASH_SPEED )
+          DamageCar( car, (impact - CAR_CRASH_SPEED) * CAR_CRASH_DAMAGE, driven_by_player );
+
         if( delta_x != 0 ) CarVelX[ car ] *= -CAR_BOUNCE;
         if( delta_y != 0 ) CarVelY[ car ] *= -CAR_BOUNCE;
         return;
@@ -297,6 +401,30 @@ void MoveCarAxis( int car, float delta_x, float delta_y )
 
     if( other >= 0 && !separating )
     {
+        float impact = fabs( CarVelX[ car ] - CarVelX[ other ] ) + fabs( CarVelY[ car ] - CarVelY[ other ] );
+
+        bool player_involved = driven_by_player || (IsPlayerInCar && other == CurrentCar);
+
+        if( player_involved && impact > 1.0 && PoliceCrashCooldown <= 0 )
+        {
+            int victim = other;
+            if( !driven_by_player ) victim = car;
+
+            if( CarType[ victim ] == CarTypePolice && CarIsAI[ victim ] )
+            {
+                ReportCrime( 2 );
+                StartCarMood( victim, MoodPolice );
+                PoliceCrashCooldown = 60;
+            }
+        }
+
+        if( impact > CAR_CRASH_SPEED )
+        {
+            float damage = (impact - CAR_CRASH_SPEED) * CAR_CRASH_DAMAGE;
+            DamageCar( car, damage, player_involved );
+            DamageCar( other, damage, player_involved );
+        }
+
         if( delta_x != 0 )
         {
             CarVelX[ other ] += CarVelX[ car ] * CAR_PUSH_TRANSFER;
@@ -385,16 +513,30 @@ void UpdateOneCar( int car, float throttle, float steer, bool handbrake )
 
     MoveCarAxis( car, CarVelX[ car ], 0 );
     MoveCarAxis( car, 0, CarVelY[ car ] );
+
+    if( IsPlayerInCar && car == CurrentCar )
+      WrapPlayerCar( car );
 }
 
 // ---------------------------------------------------------
 
+
 void UpdateCarPhysics()
 {
+    UpdateCarKinematics();
+
+    if( PoliceCrashCooldown > 0 )
+      PoliceCrashCooldown--;
+
     for( int i = 0; i < MaxCars; i++ )
     {
         if( IsPlayerInCar && i == CurrentCar )
           UpdateOneCar( i, CarThrottle, CarSteer, CarHandbrake );
+        else if( CarIsAI[ i ] )
+        {
+            UpdateTrafficCar( i );
+            UpdateOneCar( i, TrafficThrottle, TrafficSteer, false );
+        }
         else
           UpdateOneCar( i, 0, 0, false );
     }
@@ -430,6 +572,9 @@ bool TryEnterNearestCar()
 
     for( int i = 0; i < MaxCars; i++ )
     {
+        if( CarWrecked[ i ] )
+          continue;
+
         float dx = PlayerX - CarX[ i ];
         float dy = PlayerY - CarY[ i ];
         float distance = sqrt( dx * dx + dy * dy );
@@ -444,26 +589,27 @@ bool TryEnterNearestCar()
     if( nearest < 0 )
       return false;
 
+    // enter_vehicle() never checked whose heli it was. There was only one heli. It was yours.
+    // Jastro, stealing a police car in the first playtest: "it's mine now, same thing"
+    // v2 (Carra): parked cars count too. "It's still not yours, Jastro."
+    // v3 (Jastro): reverted v2. "If nobody's inside, it's basically a donation."
+    if( !CarStolen[ nearest ] && CarIsAI[ nearest ] )
+    {
+        if( CarType[ nearest ] == CarTypePolice ) ReportCrime( 6 );
+        else ReportCrime( 2 );
+    }
+
+    CarStolen[ nearest ] = true;
+
+    CarMood[ nearest ] = MoodNormal;
     CurrentCar = nearest;
+    CarIsAI[ nearest ] = false;
     IsPlayerInCar = true;
+    PlaySfx( SoundEnterCar );   // the heli boarding sound. For a car. Jastro: "doors are basically rotors"
     CarThrottle = 0;
     CarSteer = 0;
     CarHandbrake = false;
     TargetFloorZ = FLOOR_Z_IN_CAR;
-
-    // OceanStorm: if( !has_event_happened( FleeIsland ) ) { ... mark_event_as_happened( ... ) }
-    // events.c had a whole event system. Here it's one bool.
-    // Jastro: "we downgraded"
-    // Carra: "we right-sized"
-    if( !FirstCarDialogShown )
-    {
-        FirstCarDialogShown = true;
-        QueueDialog( &DW_FirstCar1 );
-        QueueDialog( &DW_FirstCar2 );
-        QueueDialog( &DW_FirstCar3 );
-        QueueDialog( &DW_FirstCar4 );
-        StartDialogSequence();
-    }
 
     return true;
 }
@@ -491,6 +637,7 @@ void ExitCar()
           return;
     }
 
+    PlaySfx( SoundEnterCar );
     PlayerX = exit_x;
     PlayerY = exit_y;
     PlayerAngle = CarAngle[ c ];
@@ -510,6 +657,9 @@ void RenderCars()
 
     for( int i = 0; i < MaxCars; i++ )
     {
+        if( !IsMapPointVisible( CarX[ i ], CarY[ i ], 60 ) )
+          continue;
+
         select_region( RegionFirstCar + CarType[ i ] );
 
         // 1. shadow. The heli offset it by altitude; cars have
@@ -518,7 +668,10 @@ void RenderCars()
         set_multiply_color( make_color_rgba( 0, 0, 0, 110 ) );
         DrawSpriteInMap( CarX[ i ] + 3, CarY[ i ] + 3, CarAngle[ i ], 1.0 );
 
+        // OceanStorm's destroyed enemies just vanished. Here the wreck stays, charred.
+        // Jastro wanted them to vanish too: "less memory". The array is the same size either way.
         set_multiply_color( color_white );
+        if( CarWrecked[ i ] ) set_multiply_color( make_color_rgb( 60, 48, 48 ) );
         DrawSpriteInMap( CarX[ i ], CarY[ i ], CarAngle[ i ], 1.0 );
     }
 }
@@ -553,6 +706,9 @@ void RenderCarSigns()
 
         for( int i = 0; i < MaxCars; i++ )
         {
+            if( CarWrecked[ i ] )
+              continue;
+
             float dx = PlayerX - CarX[ i ];
             float dy = PlayerY - CarY[ i ];
             float distance2 = dx * dx + dy * dy;

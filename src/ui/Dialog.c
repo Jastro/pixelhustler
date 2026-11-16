@@ -31,7 +31,7 @@ int NumDialogs = 0;
 int DialogCharsShown = 0;
 
 // 0 = English, 1 = Spanish (same as game_language in OceanStorm)
-int GameLanguage = 0;
+int GameLanguage = 1;
 
 int[ 256 ] DialogVisibleText;
 
@@ -52,7 +52,7 @@ void InitializeDialog()
         0, 0,
         DIALOG_PORTRAIT_SIZE - 1, DIALOG_PORTRAIT_SIZE - 1,
         DIALOG_PORTRAIT_SIZE / 2, DIALOG_PORTRAIT_SIZE / 2,
-        2, 1,
+        NumPortraits, 1,
         0
     );
 }
@@ -131,23 +131,63 @@ void UpdateDialog()
     }
 }
 
+int* PortraitName( int region )
+{
+    if( region == RegionPortraitJastro )   return "Jastro";
+    if( region == RegionPortraitCarra )    return "Carra";
+    if( region == RegionPortraitChip )     return "Chip Buster";
+    if( region == RegionPortraitJoyrider ) return "Joyrider";
+    if( region == SpeakerNezbo )  return "Nezbo";
+    if( region == SpeakerJavi )   return "javifugitivo";
+    if( region == SpeakerRunig )  return "Runig666";
+    if( region == SpeakerRidote ) return "Ridote";
+    if( region == SpeakerRigo )   return "R2D2Rigo";
+    if( GameLanguage == 1 ) return "Cartel";
+    return "Sign";
+}
+
+int PortraitColor( int region )
+{
+    if( region == RegionPortraitJastro )   return make_color_rgb( 60, 220, 120 );
+    if( region == RegionPortraitCarra )    return make_color_rgb( 0, 235, 255 );
+    if( region == RegionPortraitChip )     return make_color_rgb( 255, 150, 60 );
+    if( region == RegionPortraitJoyrider ) return make_color_rgb( 255, 225, 60 );
+    if( region == SpeakerRigo )            return make_color_rgb( 170, 255, 120 );
+    if( region == SpeakerSign )            return make_color_rgb( 200, 200, 220 );
+    return make_color_rgb( 190, 150, 255 );
+}
+
 void RenderDialog()
 {
     if( !DialogActive ) return;
 
-    int dialog_x = 300;
-    int dialog_y = 270;
+    int frame_x = 310;
+    int frame_y = 279;
+    int portrait_x = 103;
+    int portrait_y = 268;
+    int text_x = 172;
+    int text_y = 218;
 
     set_multiply_color( color_white );
     select_texture( TextureDialog );
     select_region( 0 );
-    draw_region_at( dialog_x + 10, dialog_y + 10 );
+    draw_region_at( frame_x, frame_y );
 
     if( DialogRegion >= 0 )
     {
         select_texture( TexturePortraits );
-        select_region( DialogRegion );
-        draw_region_at( dialog_x - 205, dialog_y + 10 );
+        if( DialogRegion >= SpeakerNezbo )
+          select_region( RegionPortraitUnknown );
+        else
+          select_region( DialogRegion );
+        draw_region_at( portrait_x, portrait_y );
+
+        int* name = PortraitName( DialogRegion );
+        int name_x = portrait_x - strlen( name ) * 5;
+        if( name_x < 48 ) name_x = 48;
+        set_multiply_color( PortraitColor( DialogRegion ) );
+        print_at( name_x, 322, name );
+        set_multiply_color( color_white );
     }
 
     int text_length = strlen( DialogTextBuffer );
@@ -157,12 +197,12 @@ void RenderDialog()
     memcpy( DialogVisibleText, DialogTextBuffer, shown );
     DialogVisibleText[ shown ] = 0;
 
-    print_at( dialog_x - 140, dialog_y - 42, DialogVisibleText );
+    print_at( text_x, text_y, DialogVisibleText );
 
     // OceanStorm drew "Press any button to continue" at y = dialog_y + 124 - 20 = 374.
     // The screen is 360 pixels tall.
     // For a whole game jam, the hint was rendered 14 pixels below the screen.
     // Jastro: "it's there, you just can't see it. Like my contributions."
     if( shown >= text_length && get_frame_counter() % 40 > 12 )
-      print_at( dialog_x + 180, dialog_y + 40, ">>" );
+      print_at( 556, 326, ">>" );
 }

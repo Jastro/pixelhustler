@@ -147,6 +147,33 @@ def draw_ped(jacket, neon, pants, hair, skin=(232, 180, 136), frame=0):
     return out
 
 
+def draw_corpse(jacket, neon, pants, hair, skin=(232, 180, 136)):
+    fig = Image.new("RGBA", (PED, PED), (0, 0, 0, 0))
+    d = ImageDraw.Draw(fig)
+    cx = PED // 2
+    shoe = (15, 15, 20)
+    d.line([(cx - 3, 18), (cx - 8, 28)], fill=pants + (255,), width=4)
+    d.line([(cx + 3, 18), (cx + 7, 29)], fill=pants + (255,), width=4)
+    d.rectangle([cx - 10, 27, cx - 6, 30], fill=shoe + (255,))
+    d.rectangle([cx + 5, 28, cx + 9, 31], fill=shoe + (255,))
+    d.line([(cx - 5, 9), (cx - 13, 4)], fill=jacket + (255,), width=4)
+    d.line([(cx + 5, 10), (cx + 12, 16)], fill=jacket + (255,), width=4)
+    d.ellipse([cx - 15, 1, cx - 11, 5], fill=skin + (255,))
+    d.ellipse([cx + 10, 14, cx + 14, 18], fill=skin + (255,))
+    d.rounded_rectangle([cx - 6, 7, cx + 6, 20], radius=3, fill=jacket + (255,), outline=neon + (255,))
+    d.line([(cx, 9), (cx, 18)], fill=shade(jacket, 0.7))
+    d.ellipse([cx - 4, 0, cx + 4, 8], fill=skin + (255,))
+    d.arc([cx - 4, 0, cx + 4, 8], 180, 360, fill=hair + (255,), width=3)
+    d.point((cx - 2, 4), fill=(20, 20, 20, 255))
+    d.point((cx + 2, 4), fill=(20, 20, 20, 255))
+    alpha = fig.getchannel("A").point(lambda a: 255 if a > 0 else 0)
+    outline_mask = alpha.filter(ImageFilter.MaxFilter(3))
+    out = Image.new("RGBA", (PED, PED), (0, 0, 0, 0))
+    out.paste(Image.new("RGBA", (PED, PED), (8, 6, 16, 255)), (0, 0), outline_mask)
+    out.alpha_composite(fig)
+    return out
+
+
 cars = [
     ("car_red",    draw_car((150, 20, 60),  (255, 40, 170), "sedan")),
     ("car_blue",   draw_car((25, 35, 110),  (0, 235, 255),  "sedan")),
@@ -156,10 +183,16 @@ cars = [
     ("car_van",    draw_car((55, 60, 75),   (255, 140, 0),  "van")),
 ]
 peds = [
-    ("ped_jastro", ((20, 190, 90),   (170, 255, 120), (30, 30, 60),  (70, 40, 20))),   # +10 charisma
-    ("ped_carra",  ((70, 70, 85),    (0, 235, 255),   (25, 25, 30),  (20, 20, 20))),   # has not slept since OceanStorm
+    ("ped_jastro", ((20, 190, 90),   (170, 255, 120), (30, 30, 60),  (18, 16, 22))),   # +10 charisma
+    ("ped_carra",  ((30, 30, 36),    (60, 210, 110),  (25, 25, 30),  (60, 48, 44))),   # has not slept since OceanStorm
     ("ped_civil1", ((220, 30, 150),  (255, 140, 220), (40, 40, 50),  (250, 220, 60))),
     ("ped_civil2", ((240, 240, 250), (255, 60, 60),   (20, 50, 120), (140, 70, 30))),
+    ("ped_chip",   ((235, 95, 20),   (255, 210, 60),  (28, 28, 40),  (15, 15, 22))),
+    ("ped_civil3", ((120, 50, 200),  (0, 235, 255),   (40, 40, 50),  (230, 230, 235))),
+    ("ped_civil4", ((250, 200, 30),  (255, 90, 40),   (50, 40, 30),  (90, 50, 25))),
+    ("ped_joyrider", ((110, 40, 160), (255, 225, 60), (30, 30, 40),  (110, 40, 160))),
+    ("ped_rigo",   ((40, 80, 50),    (170, 255, 120), (30, 30, 36),  (30, 26, 24))),
+    ("ped_cop",    ((28, 40, 110),   (70, 120, 255),  (18, 18, 36),  (20, 24, 70))),   # the cap is the hair. Budget cuts.
 ]
 
 for name, img in cars:
@@ -200,15 +233,55 @@ print("OK ->", OUT)
 # (Jastro changed it once. Every car became half a taxi and half a
 #  pedestrian. He called it "a new vehicle class".)
 ATLAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "textures", "TextureSprites.png")
-atlas = Image.new("RGBA", (256, 80 + PED * len(peds)), (0, 0, 0, 0))
+CORPSE_Y = 80 + PED * len(peds)
+atlas = Image.new("RGBA", (256, CORPSE_Y + PED * 2), (0, 0, 0, 0))
 for i, (_, img) in enumerate(cars):
     atlas.paste(img, (i * CAR_W, 0))
 for p, (name, _) in enumerate(peds):
     atlas.paste(Image.open(f"{OUT}/{name}.png"), (0, 80 + p * PED))
+# OceanStorm had a 4-frame death animation for the enemy soldier. Here: one frame, lying down.
+# Jastro's first corpse was the walking sprite rotated 90 degrees. "He's resting".
+# It looked like a foot in a puddle. Carra drew actual bodies.
+for p, (name, (j, n, pa, h)) in enumerate(peds):
+    atlas.paste(draw_corpse(j, n, pa, h), ((p % 8) * PED, CORPSE_Y + (p // 8) * PED))
 # Copied from OceanStorm's gui.png. Pixel by pixel. With love.
 # Carra: "you could have drawn new ones"
 # Jastro: "why? these ones already say ENTER"
 signs = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "src", "oceanstorm_signs.png"))
 atlas.paste(signs, (130, 82))
+
+arrow = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+ad = ImageDraw.Draw(arrow)
+ad.polygon([(12, 1), (22, 13), (16, 13), (16, 22), (8, 22), (8, 13), (2, 13)], fill=(255, 225, 60, 255), outline=(255, 250, 200, 255))
+arrow_glow = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+arrow_glow.paste(Image.new("RGBA", (24, 24), (255, 160, 0, 90)), (0, 0), arrow.getchannel("A").filter(ImageFilter.MaxFilter(3)))
+arrow_glow.alpha_composite(arrow)
+atlas.paste(arrow_glow, (200, 82))
+
+ring = Image.new("RGBA", (40, 40), (0, 0, 0, 0))
+rd = ImageDraw.Draw(ring)
+rd.ellipse([1, 1, 38, 38], outline=(255, 225, 60, 90), width=4)
+rd.ellipse([3, 3, 36, 36], outline=(255, 225, 60, 255), width=2)
+rd.ellipse([9, 9, 30, 30], outline=(255, 225, 60, 120), width=1)
+atlas.paste(ring, (200, 110))
+
+atlas.paste(Image.new("RGBA", (8, 8), (255, 255, 255, 255)), (240, 82))
+
+pole = Image.new("RGBA", (14, 32), (0, 0, 0, 0))
+pd = ImageDraw.Draw(pole)
+pd.rounded_rectangle([0, 0, 13, 31], radius=3, fill=(18, 16, 26, 255), outline=(70, 66, 90, 255))
+for k, col in enumerate(((90, 20, 30), (90, 70, 10), (15, 70, 30))):
+    cy = 6 + k * 10
+    pd.ellipse([3, cy - 4, 10, cy + 3], fill=col + (255,), outline=(8, 6, 12, 255))
+atlas.paste(pole, (130, 150))
+
+glow = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
+gp = glow.load()
+for y in range(24):
+    for x in range(24):
+        r = ((x - 11.5) ** 2 + (y - 11.5) ** 2) ** 0.5 / 12
+        a = max(0.0, 1 - r) ** 1.5
+        gp[x, y] = (255, 255, 255, int(a * 255))
+atlas.paste(glow, (150, 150))
 atlas.save(ATLAS)
 print("Atlas ->", os.path.normpath(ATLAS), atlas.size)

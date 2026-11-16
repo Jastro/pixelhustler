@@ -9,6 +9,39 @@
         <texture path="../../obj/TextureSprites.vtex" />
         <texture path="../../obj/TextureDialog.vtex" />
         <texture path="../../obj/TexturePortraits.vtex" />
+        <texture path="../../obj/TextureIntro.vtex" />
+        <texture path="../../obj/TextureChat.vtex" />
+        <texture path="../../obj/TextureTitle.vtex" />
+        <texture path="../../obj/TextureInterior.vtex" />
+        <texture path="../../obj/TextureWeapons.vtex" />
     </textures>
-    <sounds />
+    <sounds>
+        <sound path="../../obj/music-menu.vsnd" />
+        <sound path="../../obj/music-turrets.vsnd" />
+        <sound path="../../obj/music-planes.vsnd" />
+        <sound path="../../obj/music-boss.vsnd" />
+        <sound path="../../obj/music-ending.vsnd" />
+        <sound path="../../obj/shoot.vsnd" />
+        <sound path="../../obj/enemyshoot.vsnd" />
+        <sound path="../../obj/explosion.vsnd" />
+        <sound path="../../obj/hurt.vsnd" />
+        <sound path="../../obj/death.vsnd" />
+        <sound path="../../obj/pickup.vsnd" />
+        <sound path="../../obj/changeweapon.vsnd" />
+        <sound path="../../obj/actioncancelled.vsnd" />
+        <sound path="../../obj/enemyhit.vsnd" />
+        <sound path="../../obj/fall.vsnd" />
+        <sound path="../../obj/enterheli.vsnd" />
+        <sound path="../../obj/heli.vsnd" />
+        <sound path="../../obj/lowfuel.vsnd" />
+        <sound path="../../obj/menumove.vsnd" />
+        <sound path="../../obj/menuaccept.vsnd" />
+        <sound path="../../obj/siren.vsnd" />
+        <sound path="../../obj/cash.vsnd" />
+        <sound path="../../obj/reload.vsnd" />
+        <sound path="../../obj/door.vsnd" />
+        <sound path="../../obj/busted.vsnd" />
+        <sound path="../../obj/thud.vsnd" />
+        <sound path="../../obj/wanted.vsnd" />
+    </sounds>
 </rom-definition>
